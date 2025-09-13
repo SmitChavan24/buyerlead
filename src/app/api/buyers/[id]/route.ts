@@ -2,9 +2,14 @@ import { db } from "@/db";
 import { buyers } from "@/db/schema/buyer";
 import { eq } from "drizzle-orm";
 import { logBuyerHistory } from "@/lib/api/history";
+import { NextRequest, NextResponse } from "next/server";
+import { RouteHandler } from "next/dist/server/base-server";
 
-export async function PUT(req: Request, context: { params: { id: string } }) {
-  const buyerId = context.params.id;
+export const PUT: RouteHandler<"/api/buyers/[id]"> = async (
+  req: NextRequest,
+  { params }
+) => {
+  const buyerId = params.id;
   const body = await req.json();
   const userId = body.userId; // get from session in real app
 
@@ -14,5 +19,5 @@ export async function PUT(req: Request, context: { params: { id: string } }) {
   // Log changes
   await logBuyerHistory(buyerId, body, userId);
 
-  return new Response(JSON.stringify({ success: true }));
-}
+  return new NextResponse(JSON.stringify({ success: true }));
+};
