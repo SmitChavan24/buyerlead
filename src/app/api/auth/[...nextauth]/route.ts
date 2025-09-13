@@ -1,69 +1,33 @@
-import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { db } from "@/db"; // your drizzle db
-import { users } from "@/db/schema/auth";
-import { eq } from "drizzle-orm";
-import bcrypt from "bcryptjs";
+import NextAuth, { type NextAuthOptions } from "next-auth";
+import EmailProvider from "next-auth/providers/email";
+import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { db } from "@/db";
+import * as schema from "@/db/schema/auth";
 
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
+  adapter: DrizzleAdapter(db, { usersTable: schema.users }),
   providers: [
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+    EmailProvider({
+      server: {
+        host: process.env.NEXT_PUBLIC_EMAIL_SERVER_HOST,
+        port: Number(process.env.NEXT_PUBLIC_EMAIL_SERVER_PORT),
+        auth: {
+          user: process.env.NEXT_PUBLIC_EMAIL_SERVER_USER!,
+          pass: process.env.NEXT_PUBLIC_EMAIL_SERVER_PASSWORD!,
+        },
       },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
-
-        // 1. Try to find user
-        const [user] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, credentials.email));
-
-        if (!user) {
-          // 2. Auto-create new user if not exists
-          const hashedPassword = await bcrypt.hash(credentials.password, 10);
-          const [newUser] = await db
-            .insert(users)
-            .values({
-              email: credentials.email,
-              password: hashedPassword,
-              name: credentials.email.split("@")[0], // fallback name
-              role: "user", // default role
-            })
-            .returning();
-
-          return newUser;
-        }
-
-        // 3. Validate password
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-        if (!isValid) return null;
-
-        return user;
-      },
+      from: process.env.NEXT_PUBLIC_EMAIL_FROM,
+      maxAge: 45 * 60,
     }),
   ],
-  session: {
-    strategy: "jwt",
-  },
+  session: { strategy: "jwt" },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.role = user.role;
-      }
-      return token;
-    },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id;
-        session.user.role = token.role;
+        session.user = {
+          ...session.user,
+          id: token.sub!,
+        };
       }
       return session;
     },

@@ -3,84 +3,50 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Navbar from "../../../components/Navbar";
-import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    const res = await signIn("credentials", {
-      redirect: false,
-      email,
-      password,
-    });
-
-    setLoading(false);
-
-    if (res?.error) {
-      setError("Invalid email or password");
-    } else {
-      router.push("/buyers");
-    }
+    await signIn("email", { email, callbackUrl: "/buyers" });
   };
 
   return (
-    <main className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-      <Navbar />
+    <div className="flex items-center justify-center h-screen bg-slate-50">
+      <form
+        onSubmit={handleSubmit}
+        className="p-6 bg-white rounded-xl shadow-md w-80"
+      >
+        <h1 className="text-xl font-bold mb-4 text-center">
+          Login via Magic Link
+        </h1>
 
-      <div className="flex flex-col items-center justify-center flex-1">
-        <form
-          onSubmit={handleLogin}
-          className="bg-white p-6 rounded-xl shadow-md w-96 space-y-4"
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter your email"
+          className="border border-slate-300 rounded px-3 py-2 w-full mb-4 focus:outline-none focus:ring focus:ring-slate-200"
+          required
+        />
+
+        <button
+          type="submit"
+          className="w-full bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition"
         >
-          <h1 className="text-xl font-bold text-slate-900">Login</h1>
+          Send Magic Link
+        </button>
 
-          <div className="flex flex-col">
-            <label htmlFor="email" className="mb-1 font-medium">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="flex flex-col">
-            <label htmlFor="password" className="mb-1 font-medium">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {error && <p className="text-red-600">{error}</p>}
-
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Logging in..." : "Login"}
-          </Button>
-        </form>
-      </div>
-    </main>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="w-full mt-3 border border-slate-300 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-100 transition"
+        >
+          Back
+        </button>
+      </form>
+    </div>
   );
 }

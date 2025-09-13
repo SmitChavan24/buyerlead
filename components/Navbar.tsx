@@ -11,7 +11,7 @@ interface NavbarProps {
 export default function Navbar({ session }: NavbarProps) {
   return (
     <nav className="flex justify-between items-center p-4 bg-white shadow-md">
-      <h1 className="text-lg font-bold text-slate-900">BLI</h1>
+      <h1 className="text-lg font-bold text-slate-900">Buyer Lead Intake</h1>
 
       <div>
         {session ? (
