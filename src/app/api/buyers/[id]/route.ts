@@ -3,11 +3,8 @@ import { buyers } from "@/db/schema/buyer";
 import { eq } from "drizzle-orm";
 import { logBuyerHistory } from "@/lib/api/history";
 
-export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  const buyerId = params.id;
+export async function PUT(req: Request, context: { params: { id: string } }) {
+  const buyerId = context.params.id;
   const body = await req.json();
   const userId = body.userId; // get from session in real app
 
