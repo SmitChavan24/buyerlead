@@ -34,7 +34,7 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
 
   const form = useForm<BuyerFormValues>({
     resolver: zodResolver(buyerBase),
-    defaultValues: initialData,
+    defaultValues: {},
   });
 
   const onSubmit = async (values: BuyerFormValues) => {
