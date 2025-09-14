@@ -9,9 +9,8 @@ import { buyerBase } from "@/lib/validators/buyer";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  // ✅ Auth check
   const session = await getServerSession(authOptions);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -54,13 +53,14 @@ export async function PUT(
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const id = await params.id;
     const buyer = await db
       .select()
       .from(buyers)
-      .where(eq(buyers.id, params.id)) // if `id` is uuid keep as string
+      .where(eq(buyers.id, id)) // if `id` is uuid keep as string
       .limit(1);
 
     if (!buyer) {
