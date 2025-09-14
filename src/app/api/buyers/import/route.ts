@@ -4,31 +4,7 @@ import { buyers } from "@/db/schema/buyer";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";
-
-// ✅ Validation schema (without ownerId now)
-const buyerSchema = z.object({
-  fullName: z.string().min(2).max(80),
-  email: z.string().optional(),
-  phone: z.string().min(10).max(15),
-  city: z.string().optional(),
-  propertyType: z.string().optional(),
-  bhk: z.string().optional().default(""),
-  purpose: z.string().optional(),
-  budgetMin: z.coerce.number().int().optional(),
-  budgetMax: z.coerce.number().int().optional(),
-  timeline: z.string().optional(),
-  source: z.string().optional(),
-  status: z.string().optional(),
-  notes: z.string().optional(),
-  tags: z
-    .union([z.string(), z.array(z.string())])
-    .transform((val) =>
-      typeof val === "string" ? val.split(",").map((t) => t.trim()) : val
-    )
-    .optional()
-    .default([]),
-  updatedAt: z.string().optional(),
-});
+import { buyerBase } from "@/lib/validators/buyer";
 
 export async function POST(req: Request) {
   try {
@@ -48,7 +24,7 @@ export async function POST(req: Request) {
     }
 
     // ✅ Parse & validate rows
-    const parsed = buyerSchema.array().parse(body.buyers);
+    const parsed = buyerBase.array().parse(body.buyers);
 
     // ✅ Inject logged-in user’s ID as ownerId
     const values = parsed.map((b) => ({

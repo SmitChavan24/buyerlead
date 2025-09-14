@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   if (!parse.success) {
     return NextResponse.json({ error: parse.error.format() }, { status: 400 });
   }
-  console.log(session, "its session");
+
   const buyerData = {
     ...parse.data,
     ownerId: session.user.id,

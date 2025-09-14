@@ -35,29 +35,90 @@ export const statusEnum = z.enum([
   "Dropped",
 ]);
 
-export const buyerBase = z.object({
-  fullName: z.string().min(2).max(80),
-  email: z
-    .string()
-    .email()
-    .optional()
-    .or(z.literal(""))
-    .transform((v) => (v === "" ? undefined : v)),
-  phone: z.string().regex(/^\d{10,15}$/, "Phone must be numeric 10-15 digits"),
-  city: cityEnum,
-  propertyType: propertyTypeEnum,
-  bhk: z.union([bhkEnum, z.undefined(), z.null()]).optional(),
-  purpose: purposeEnum,
-  budgetMin: z.number().int().positive().optional().nullable(),
-  budgetMax: z.number().int().positive().optional().nullable(),
-  timeline: timelineEnum,
-  source: sourceEnum,
-  notes: z.string().max(1000).optional().nullable(),
-  tags: z.array(z.string()).optional().default([]),
-  status: statusEnum.optional().default("New"),
-});
+export const buyerBase = z
+  .object({
+    fullName: z
+      .string()
+      .min(2, "Full name must be at least 2 characters")
+      .regex(/^[A-Za-z\s]+$/, "Full name must only contain letters and spaces"),
+    email: z.string().email("Invalid email").optional().or(z.literal("")),
+    phone: z.string().regex(/^\d{10}$/, "Phone must be 10 digits"),
+    city: z.enum(["Chandigarh", "Mohali", "Zirakpur", "Panchkula", "Other"]),
+    propertyType: z.enum(["Apartment", "Villa", "Plot", "Office", "Retail"]),
+    bhk: z.enum(["1", "2", "3", "4", "Studio"]).optional(),
+    purpose: z.enum(["Buy", "Rent"]),
+    budgetMin: z
+      .union([
+        z.literal(""), // allow empty string
+        z.coerce.number().int().positive("Budget Min must be greater than 0"),
+      ])
+      .optional()
+      .transform((val) => (val === "" ? undefined : val)),
+    budgetMax: z
+      .union([
+        z.literal(""),
+        z.coerce.number().int().positive("Budget Max must be greater than 0"),
+      ])
+      .optional()
+      .transform((val) => (val === "" ? undefined : val)),
+    timeline: z.enum(["0-3m", "3-6m", ">6m", "Exploring"]),
 
-export const buyerCreate = buyerBase
+    source: z.enum(["Website", "Referral", "Walk-in", "Call", "Other"]),
+    notes: z.string().max(1000).optional(),
+    status: z
+      .enum([
+        "New",
+        "Qualified",
+        "Contacted",
+        "Visited",
+        "Negotiation",
+        "Converted",
+        "Dropped",
+      ])
+      .default("New"),
+    tags: z
+      .union([
+        z.string().transform((val) =>
+          val
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
+        ),
+        z.array(z.string()),
+      ])
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      // Case 1: both empty → valid
+      if (!data.budgetMin && !data.budgetMax) return true;
+
+      // Case 2: one empty → invalid
+      if (
+        (data.budgetMin && !data.budgetMax) ||
+        (!data.budgetMin && data.budgetMax)
+      ) {
+        return false;
+      }
+
+      // Case 3: both filled but invalid range → invalid
+      if (
+        data.budgetMin &&
+        data.budgetMax &&
+        data.budgetMax <= data.budgetMin
+      ) {
+        return false;
+      }
+
+      // Case 4: all good
+      return true;
+    },
+    {
+      message:
+        "Please enter both Budget Min and Budget Max, and ensure Max > Min.",
+      path: ["budget"], // ✅ virtual field, error shows under both
+    }
+  )
   .refine(
     (data) => {
       if (["Apartment", "Villa"].includes(data.propertyType)) {
@@ -66,20 +127,7 @@ export const buyerCreate = buyerBase
       return true;
     },
     {
-      message: "BHK is required for Apartment or Villa",
+      message: "BHK is required for Apartment or Villa.",
       path: ["bhk"],
     }
-  )
-  .superRefine((data, ctx) => {
-    if (data.budgetMin != null && data.budgetMax != null) {
-      if (data.budgetMax < data.budgetMin) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "budgetMax must be >= budgetMin",
-          path: ["budgetMax"],
-        });
-      }
-    }
-  });
-
-export type BuyerCreate = z.infer<typeof buyerCreate>;
+  );

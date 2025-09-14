@@ -6,11 +6,18 @@ import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await signIn("email", { email, callbackUrl: "/buyers" });
+    setLoading(true);
+
+    try {
+      await signIn("email", { email, callbackUrl: "/buyers" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,9 +41,14 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          className="w-full bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition"
+          disabled={loading}
+          className={`w-full px-4 py-2 rounded-lg transition text-white ${
+            loading
+              ? "bg-slate-400 cursor-not-allowed"
+              : "bg-slate-900 hover:bg-slate-800"
+          }`}
         >
-          Send Magic Link
+          {loading ? "Sending..." : "Send Magic Link"}
         </button>
 
         <button
