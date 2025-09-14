@@ -4,11 +4,7 @@ import React, { use, useEffect, useState } from "react";
 import axios from "axios";
 import BuyerForm from "../../../../components/BuyerForm";
 
-export default function BuyerPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function BuyerPage({ params }: { params: { id: string } }) {
   const [buyer, setBuyer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { id } = React.use(params);
