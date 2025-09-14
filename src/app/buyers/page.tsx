@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { signOut } from "next-auth/react";
@@ -208,179 +208,181 @@ export default function BuyersPage() {
   };
 
   return (
-    <Card className="m-3">
-      <CardHeader className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <CardTitle>Buyer Leads</CardTitle>
+    <Suspense fallback={<div>Loading...</div>}>
+      <Card className="m-3">
+        <CardHeader className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+          <CardTitle>Buyer Leads</CardTitle>
 
-        {/* ✅ Responsive button container */}
-        <div className="flex flex-wrap gap-2">
-          <Button asChild>
-            <label className="cursor-pointer">
-              Import CSV
-              <input
-                type="file"
-                accept=".csv"
-                hidden
-                onChange={handleImportCSV}
-              />
-            </label>
-          </Button>
-
-          <Button onClick={handleExportCSV}>Export CSV</Button>
-
-          <Link href="/buyers/new">
-            <Button>Create</Button> {/* ✅ shorter text helps on mobile */}
-          </Link>
-
-          <Button
-            variant="destructive"
-            onClick={() => signOut({ callbackUrl: "/" })}
-          >
-            Logout
-          </Button>
-        </div>
-      </CardHeader>
-
-      <CardContent>
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          <Input
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full sm:w-64"
-          />
-          <Select value={city} onValueChange={setCity}>
-            <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="City" />
-            </SelectTrigger>
-            <SelectContent>
-              {cities.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={propertyType} onValueChange={setPropertyType}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Property" />
-            </SelectTrigger>
-            <SelectContent>
-              {propertyTypes.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {statuses.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={timeline} onValueChange={setTimeline}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Timeline" />
-            </SelectTrigger>
-            <SelectContent>
-              {timelines.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSearch("");
-              setCity("");
-              setPropertyType("");
-              setStatus("");
-              setTimeline("");
-            }}
-          >
-            Clear
-          </Button>
-        </div>
-
-        <Separator className="my-4" />
-
-        {/* Table container with horizontal scroll on small screens */}
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>City</TableHead>
-                <TableHead>Property</TableHead>
-                <TableHead>Budget</TableHead>
-                <TableHead>Timeline</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Updated</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {buyers.map((b) => (
-                <TableRow key={b.id}>
-                  <TableCell>{b.fullName}</TableCell>
-                  <TableCell>{b.city}</TableCell>
-                  <TableCell>{b.propertyType}</TableCell>
-                  <TableCell>
-                    {b.budgetMin
-                      ? `${b.budgetMin} - ${b.budgetMax || "?"}`
-                      : "-"}
-                  </TableCell>
-                  <TableCell>{b.timeline}</TableCell>
-                  <TableCell>{b.status}</TableCell>
-                  <TableCell>
-                    {new Date(b.updatedAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <Link href={`/buyers/${b.id}`}>
-                      <Button variant="outline" size="sm">
-                        View / Edit
-                      </Button>
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mt-4">
-          <span>
-            Page {page} of {totalPages}
-          </span>
-          <div className="space-x-2">
-            <Button
-              variant="outline"
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              disabled={page === 1}
-            >
-              Previous
+          {/* ✅ Responsive button container */}
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <label className="cursor-pointer">
+                Import CSV
+                <input
+                  type="file"
+                  accept=".csv"
+                  hidden
+                  onChange={handleImportCSV}
+                />
+              </label>
             </Button>
+
+            <Button onClick={handleExportCSV}>Export CSV</Button>
+
+            <Link href="/buyers/new">
+              <Button>Create</Button> {/* ✅ shorter text helps on mobile */}
+            </Link>
+
             <Button
-              variant="outline"
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              disabled={page === totalPages}
+              variant="destructive"
+              onClick={() => signOut({ callbackUrl: "/" })}
             >
-              Next
+              Logout
             </Button>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardHeader>
+
+        <CardContent>
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Input
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full sm:w-64"
+            />
+            <Select value={city} onValueChange={setCity}>
+              <SelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="City" />
+              </SelectTrigger>
+              <SelectContent>
+                {cities.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={propertyType} onValueChange={setPropertyType}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Property" />
+              </SelectTrigger>
+              <SelectContent>
+                {propertyTypes.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {statuses.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={timeline} onValueChange={setTimeline}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Timeline" />
+              </SelectTrigger>
+              <SelectContent>
+                {timelines.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearch("");
+                setCity("");
+                setPropertyType("");
+                setStatus("");
+                setTimeline("");
+              }}
+            >
+              Clear
+            </Button>
+          </div>
+
+          <Separator className="my-4" />
+
+          {/* Table container with horizontal scroll on small screens */}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>City</TableHead>
+                  <TableHead>Property</TableHead>
+                  <TableHead>Budget</TableHead>
+                  <TableHead>Timeline</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {buyers.map((b) => (
+                  <TableRow key={b.id}>
+                    <TableCell>{b.fullName}</TableCell>
+                    <TableCell>{b.city}</TableCell>
+                    <TableCell>{b.propertyType}</TableCell>
+                    <TableCell>
+                      {b.budgetMin
+                        ? `${b.budgetMin} - ${b.budgetMax || "?"}`
+                        : "-"}
+                    </TableCell>
+                    <TableCell>{b.timeline}</TableCell>
+                    <TableCell>{b.status}</TableCell>
+                    <TableCell>
+                      {new Date(b.updatedAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <Link href={`/buyers/${b.id}`}>
+                        <Button variant="outline" size="sm">
+                          View / Edit
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mt-4">
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <div className="space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                disabled={page === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                disabled={page === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </Suspense>
   );
 }
