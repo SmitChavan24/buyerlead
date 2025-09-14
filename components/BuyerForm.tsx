@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { buyerBase } from "@/lib/validators/buyer";
+import { getSession } from "next-auth/react";
 
 // 🔄 Infer type from zod schema
 type BuyerFormValues = z.infer<typeof buyerBase>;
@@ -31,16 +32,23 @@ interface BuyerFormProps {
 export default function BuyerForm({ initialData }: BuyerFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-
+  const [user, setuser] = useState(null);
   const form = useForm<BuyerFormValues>({
     resolver: zodResolver(buyerBase),
-    defaultValues: {},
+    defaultValues: initialData,
   });
+  useEffect(() => {
+    const GetSession = async () => {
+      const session = await getSession();
+      setuser(session?.user);
+    };
+
+    GetSession();
+  }, []);
 
   const onSubmit = async (values: BuyerFormValues) => {
     setLoading(true);
     try {
-      console.log("data");
       const res = await axios.put(`/api/buyers/${initialData.id}`, values);
       if (res.status !== 200) throw new Error("Failed to update lead");
       alert("Buyer updated!");
@@ -52,7 +60,9 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
       setLoading(false);
     }
   };
-
+  const isAdmin = user?.role?.toLowerCase() === "admin";
+  const isOwner = user?.id == initialData.ownerId;
+  const canEdit = isAdmin || isOwner;
   return (
     <div className="max-w-2xl mx-auto ">
       <Card>
@@ -63,7 +73,11 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             {/* Full Name */}
             <Label required>Full Name</Label>
-            <Input placeholder="Full Name" {...form.register("fullName")} />
+            <Input
+              placeholder="Full Name"
+              {...form.register("fullName")}
+              disabled={!canEdit}
+            />
             {form.formState.errors.fullName && (
               <p className="text-red-500 text-sm mt-1">
                 {form.formState.errors.fullName.message}
@@ -72,7 +86,11 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
 
             {/* Email */}
             <Label>Email</Label>
-            <Input placeholder="Email" {...form.register("email")} />
+            <Input
+              placeholder="Email"
+              {...form.register("email")}
+              disabled={!canEdit}
+            />
             {form.formState.errors.email && (
               <p className="text-red-500 text-sm mt-1">
                 {form.formState.errors.email.message}
@@ -81,7 +99,11 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
 
             {/* Phone */}
             <Label required>Phone</Label>
-            <Input placeholder="Phone" {...form.register("phone")} />
+            <Input
+              placeholder="Phone"
+              {...form.register("phone")}
+              disabled={!canEdit}
+            />
             {form.formState.errors.phone && (
               <p className="text-red-500 text-sm mt-1">
                 {form.formState.errors.phone.message}
@@ -96,6 +118,7 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
                 form.trigger("city");
               }}
               defaultValue={initialData.city || ""}
+              disabled={!canEdit}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select city" />
@@ -124,6 +147,7 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
                 form.trigger("propertyType");
               }}
               defaultValue={initialData.propertyType || ""}
+              disabled={!canEdit}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select property type" />
@@ -153,6 +177,7 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
                     form.trigger("bhk");
                   }}
                   defaultValue={initialData.bhk || ""}
+                  disabled={!canEdit}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select BHK" />
@@ -181,6 +206,7 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
                 form.trigger("purpose");
               }}
               defaultValue={initialData.purpose || ""}
+              disabled={!canEdit}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select purpose" />
@@ -206,11 +232,13 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
                 placeholder="Budget Min"
                 type="number"
                 {...form.register("budgetMin", { valueAsNumber: true })}
+                disabled={!canEdit}
               />
               <Input
                 placeholder="Budget Max"
                 type="number"
                 {...form.register("budgetMax", { valueAsNumber: true })}
+                disabled={!canEdit}
               />
             </div>
             {form.formState.errors.budget && (
@@ -227,6 +255,7 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
                 form.trigger("timeline");
               }}
               defaultValue={initialData.timeline || ""}
+              disabled={!canEdit}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select timeline" />
@@ -253,6 +282,7 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
                 form.trigger("source");
               }}
               defaultValue={initialData.source || ""}
+              disabled={!canEdit}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select source" />
@@ -281,6 +311,7 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
                 form.trigger("status");
               }}
               defaultValue={initialData.status || ""}
+              disabled={!canEdit}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select status" />
@@ -309,19 +340,26 @@ export default function BuyerForm({ initialData }: BuyerFormProps) {
 
             {/* Notes */}
             <Label>Notes</Label>
-            <Textarea placeholder="Notes" {...form.register("notes")} />
+            <Textarea
+              placeholder="Notes"
+              {...form.register("notes")}
+              disabled={!canEdit}
+            />
 
             {/* Tags */}
             <Label>Tags</Label>
             <Input
               placeholder="Tags (comma separated)"
               {...form.register("tags")}
+              disabled={!canEdit}
             />
 
             {/* Submit */}
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Update Lead"}
-            </Button>
+            {canEdit && (
+              <Button type="submit" disabled={loading}>
+                {loading ? "Saving..." : "Update Lead"}
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>

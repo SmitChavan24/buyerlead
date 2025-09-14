@@ -6,12 +6,14 @@ import { logBuyerHistory } from "@/lib/api/history";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { buyerBase } from "@/lib/validators/buyer";
+import { users } from "@/db/schema/auth";
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
+
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -19,6 +21,35 @@ export async function PUT(
   const buyerId = await params.id;
   if (!buyerId) {
     return NextResponse.json({ error: "Missing buyerId" }, { status: 400 });
+  }
+  // ✅ Get current user
+  const [currentUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, session.user.id))
+    .limit(1);
+
+  if (!currentUser) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  // ✅ Fetch existing buyer
+  const [existingBuyer] = await db
+    .select()
+    .from(buyers)
+    .where(eq(buyers.id, buyerId))
+    .limit(1);
+
+  if (!existingBuyer) {
+    return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
+  }
+
+  // ✅ Permission check
+  const isOwner = existingBuyer.ownerId === currentUser.id;
+  const isAdmin = currentUser.role === "admin";
+
+  if (!isOwner && !isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // ✅ Validate body

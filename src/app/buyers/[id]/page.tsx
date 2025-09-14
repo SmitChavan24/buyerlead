@@ -25,11 +25,11 @@ export default function BuyerPage({ params }: { params: { id: string } }) {
   }, [params]);
 
   if (loading) return <div className="p-4">Loading...</div>;
-  if (!buyer) return <div className="p-4">Buyer not found</div>;
+  if (!buyer) return <div className="p-4">Lead not found</div>;
 
   return (
     <div className="max-w-2xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Edit Buyer</h1>
+      <h1 className="text-2xl font-bold mb-4">Edit Lead</h1>
       <BuyerForm initialData={buyer[0]} />
     </div>
   );

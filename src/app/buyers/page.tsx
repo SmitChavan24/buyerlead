@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import axios from "axios";
+import { getSession } from "next-auth/react";
 import { Separator } from "@/components/ui/separator";
 import {
   Table,
@@ -71,6 +72,7 @@ export default function BuyersPage() {
   const [page, setPage] = useState(Number(searchParams.get("page") || 1));
   const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [total, setTotal] = useState(0);
+  const [user, setuser] = useState(null);
 
   // Update URL when filters/search/page change
   useEffect(() => {
@@ -97,7 +99,7 @@ export default function BuyersPage() {
         alert(err.response?.data?.error || "Failed to fetch buyers");
       }
     };
-
+    GetSession();
     fetchData();
   }, [searchParams]);
 
@@ -158,180 +160,358 @@ export default function BuyersPage() {
     document.body.removeChild(link);
   };
 
+  const GetSession = async () => {
+    const session = await getSession();
+    setuser(session?.user);
+  };
   // const handleExportCSV = () => {
   //   console.log(new Date());
   // };
 
   // ✅ Import CSV
+  // const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = e.target.files?.[0];
+  //   if (!file) return;
+
+  //   const reader = new FileReader();
+  //   reader.onload = async (event) => {
+  //     const text = event.target?.result as string;
+  //     const rows = text.split("\n").slice(1); // skip header
+
+  //     const importedBuyers = rows
+  //       .map((row) => {
+  //         const cols = row.split(",");
+  //         if (cols.length < 9) return null;
+  //         return {
+  //           fullName: cols[1],
+  //           email: cols[2],
+  //           phone: cols[3],
+  //           city: cols[4],
+  //           propertyType: cols[5],
+  //           bhk: cols[6],
+  //           purpose: cols[7],
+  //           budgetMin: cols[8] ? Number(cols[8]) : null,
+  //           budgetMax: cols[9] ? Number(cols[9]) : null,
+  //           timeline: cols[10],
+  //           source: cols[11],
+  //           status: cols[12],
+  //           updatedAt: new Date(),
+  //         };
+  //       })
+  //       .filter(Boolean);
+
+  //     try {
+  //       await axios.post("/api/buyers/import", { buyers: importedBuyers });
+  //       alert("CSV Imported Successfully");
+  //       router.refresh();
+  //     } catch (err: any) {
+  //       console.error(err);
+  //       const errors = [
+  //         {
+  //           rowIndex: "-",
+  //           error: err.response?.data?.error || "CSV import failed",
+  //         },
+  //       ];
+  //       exportErrorsToCSV(errors);
+  //       // alert(err.response?.data?.error || "CSV import failed");
+  //     }
+  //   };
+
+  //   reader.readAsText(file);
+  // };
   const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
+
     reader.onload = async (event) => {
       const text = event.target?.result as string;
-      const rows = text.split("\n").slice(1); // skip header
 
-      const importedBuyers = rows
-        .map((row) => {
-          const cols = row.split(",");
-          if (cols.length < 9) return null;
-          return {
-            fullName: cols[1],
-            email: cols[2],
-            phone: cols[3],
-            city: cols[4],
-            propertyType: cols[5],
-            bhk: cols[6],
-            purpose: cols[7],
-            budgetMin: cols[8] ? Number(cols[8]) : null,
-            budgetMax: cols[9] ? Number(cols[9]) : null,
-            timeline: cols[10],
-            source: cols[11],
-            status: cols[12],
-            updatedAt: new Date(),
-          };
-        })
+      // Split rows and remove empty lines
+      const rows = text
+        .split("\n")
+        .map((r) => r.trim())
         .filter(Boolean);
 
+      if (rows.length < 2) {
+        alert("CSV has no data");
+        return;
+      }
+
+      // Extract header
+      const header = rows[0];
+      const dataRows = rows.slice(1);
+
+      const parsedRows = dataRows.map((row, index) => {
+        const cols = row.split(",");
+
+        if (cols.length < 9) {
+          return {
+            rowIndex: index + 2,
+            raw: row,
+            error: `Invalid column length: got ${cols.length}`,
+          };
+        }
+
+        return {
+          rowIndex: index + 2,
+          raw: row,
+          data: {
+            fullName: cols[1]?.trim(),
+            email: cols[2]?.trim(),
+            phone: cols[3]?.trim(),
+            city: cols[4]?.trim(),
+            propertyType: cols[5]?.trim(),
+            bhk: cols[6]?.trim(),
+            purpose: cols[7]?.trim(),
+            budgetMin: cols[8] ? Number(cols[8]) : null,
+            budgetMax: cols[9] ? Number(cols[9]) : null,
+            timeline: cols[10]?.trim(),
+            source: cols[11]?.trim(),
+            status: cols[12]?.trim(),
+            updatedAt: new Date(),
+          },
+        };
+      });
+
+      // Split valid + invalid
+      const validBuyers = parsedRows.filter((r) => !r.error).map((r) => r.data);
+      const localErrors = parsedRows.filter((r) => r.error);
+
       try {
-        await axios.post("/api/buyers/import", { buyers: importedBuyers });
-        alert("CSV Imported Successfully");
+        await axios.post("/api/buyers/import", {
+          buyers: validBuyers,
+        });
+
+        alert("CSV Imported Successfully ✅");
         router.refresh();
       } catch (err: any) {
-        console.error(err);
-        // alert(err.response?.data?.error || "CSV import failed");
+        console.error("CSV Import Failed:", err);
+        exportErrorsToCSV(header, parsedRows, [
+          {
+            path: [0, "global"],
+            message:
+              (typeof err.response?.data?.error === "string"
+                ? JSON.parse(err.response.data.error)
+                : JSON.stringify(err.response?.data?.error)) ||
+              "CSV import failed",
+          },
+        ]);
       }
     };
 
     reader.readAsText(file);
   };
 
+  const exportErrorsToCSV = (
+    header: string,
+    rows: any[],
+    backendErrors: any[]
+  ) => {
+    const errorMap: Record<number, string[]> = {};
+
+    // Backend errors
+    backendErrors.forEach((err: any) => {
+      // If backend sends { path: [0,"global"], message: [ {...}, {...} ] }
+      if (Array.isArray(err.message)) {
+        err.message.forEach((m: any) => {
+          const rowIndex = (m.path?.[0] ?? 0) + 2; // +2 = header row + 1-based
+          if (!errorMap[rowIndex]) errorMap[rowIndex] = [];
+          errorMap[rowIndex].push(`${m.path?.[1]}: ${m.message}`);
+        });
+      } else {
+        const rowIndex = (err.path?.[0] ?? 0) + 2;
+        if (!errorMap[rowIndex]) errorMap[rowIndex] = [];
+        errorMap[rowIndex].push(
+          `${err.path?.[1] || "global"}: ${String(err.message)}`
+        );
+      }
+    });
+
+    // Local errors
+    rows.forEach((row) => {
+      if (row.error) {
+        if (!errorMap[row.rowIndex]) errorMap[row.rowIndex] = [];
+        errorMap[row.rowIndex].push(row.error);
+      }
+    });
+
+    // Add Error col to header
+    const newHeader = header + ",Error\n";
+
+    const csvContent =
+      newHeader +
+      rows
+        .map((row) => {
+          const errors = errorMap[row.rowIndex] || [];
+          const errorMsg =
+            errors.length > 0
+              ? `"${errors.join(" | ").replace(/"/g, '""')}"`
+              : "";
+          return row.raw + "," + errorMsg;
+        })
+        .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "import-errors.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  // const exportErrorsToCSV = (
+  //   errors: { rowIndex: number | string; error: string }[]
+  // ) => {
+  //   const header = "Row,Error\n";
+  //   const csvContent =
+  //     header +
+  //     errors
+  //       .map((e) => `${e.rowIndex},${e.error.replace(/,/g, " ")}`)
+  //       .join("\n");
+
+  //   const blob = new Blob([csvContent], { type: "text/csv" });
+  //   const url = window.URL.createObjectURL(blob);
+  //   const a = document.createElement("a");
+  //   a.href = url;
+  //   a.download = "import-errors.csv";
+  //   a.click();
+  //   window.URL.revokeObjectURL(url);
+  // };
+
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <Card className="m-3">
-        <CardHeader className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-          <CardTitle>Buyer Leads</CardTitle>
+    <Card className="m-3">
+      <CardHeader className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <CardTitle>Buyer Leads</CardTitle>
 
-          {/* ✅ Responsive button container */}
-          <div className="flex flex-wrap gap-2">
-            <Button asChild>
-              <label className="cursor-pointer">
-                Import CSV
-                <input
-                  type="file"
-                  accept=".csv"
-                  hidden
-                  onChange={handleImportCSV}
-                />
-              </label>
-            </Button>
+        {/* ✅ Responsive button container */}
+        <div className="flex flex-wrap gap-2">
+          <Button asChild>
+            <label className="cursor-pointer">
+              Import CSV
+              <input
+                type="file"
+                accept=".csv"
+                hidden
+                onChange={handleImportCSV}
+              />
+            </label>
+          </Button>
 
-            <Button onClick={handleExportCSV}>Export CSV</Button>
+          <Button onClick={handleExportCSV}>Export CSV</Button>
 
-            <Link href="/buyers/new">
-              <Button>Create</Button> {/* ✅ shorter text helps on mobile */}
-            </Link>
+          <Link href="/buyers/new">
+            <Button>Create</Button> {/* ✅ shorter text helps on mobile */}
+          </Link>
 
-            <Button
-              variant="destructive"
-              onClick={() => signOut({ callbackUrl: "/" })}
-            >
-              Logout
-            </Button>
-          </div>
-        </CardHeader>
+          <Button
+            variant="destructive"
+            onClick={() => signOut({ callbackUrl: "/" })}
+          >
+            Logout
+          </Button>
+        </div>
+      </CardHeader>
 
-        <CardContent>
-          {/* Filters */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            <Input
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full sm:w-64"
-            />
-            <Select value={city} onValueChange={setCity}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="City" />
-              </SelectTrigger>
-              <SelectContent>
-                {cities.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={propertyType} onValueChange={setPropertyType}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Property" />
-              </SelectTrigger>
-              <SelectContent>
-                {propertyTypes.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {statuses.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={timeline} onValueChange={setTimeline}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Timeline" />
-              </SelectTrigger>
-              <SelectContent>
-                {timelines.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearch("");
-                setCity("");
-                setPropertyType("");
-                setStatus("");
-                setTimeline("");
-              }}
-            >
-              Clear
-            </Button>
-          </div>
+      <CardContent>
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <Input
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full sm:w-64"
+          />
+          <Select value={city} onValueChange={setCity}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="City" />
+            </SelectTrigger>
+            <SelectContent>
+              {cities.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={propertyType} onValueChange={setPropertyType}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Property" />
+            </SelectTrigger>
+            <SelectContent>
+              {propertyTypes.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {p}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {statuses.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={timeline} onValueChange={setTimeline}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Timeline" />
+            </SelectTrigger>
+            <SelectContent>
+              {timelines.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearch("");
+              setCity("");
+              setPropertyType("");
+              setStatus("");
+              setTimeline("");
+            }}
+          >
+            Clear
+          </Button>
+        </div>
 
-          <Separator className="my-4" />
+        <Separator className="my-4" />
 
-          {/* Table container with horizontal scroll on small screens */}
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>City</TableHead>
-                  <TableHead>Property</TableHead>
-                  <TableHead>Budget</TableHead>
-                  <TableHead>Timeline</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead>Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {buyers.map((b) => (
+        {/* Table container with horizontal scroll on small screens */}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>City</TableHead>
+                <TableHead>Property</TableHead>
+                <TableHead>Budget</TableHead>
+                <TableHead>Timeline</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Updated</TableHead>
+                <TableHead>Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {buyers.map((b) => {
+                const isAdmin = user.role?.toLowerCase() === "admin";
+                const isOwner = user.id == b.ownerId;
+                const canEdit = isAdmin || isOwner;
+
+                return (
                   <TableRow key={b.id}>
                     <TableCell>{b.fullName}</TableCell>
                     <TableCell>{b.city}</TableCell>
@@ -349,40 +529,40 @@ export default function BuyersPage() {
                     <TableCell>
                       <Link href={`/buyers/${b.id}`}>
                         <Button variant="outline" size="sm">
-                          View / Edit
+                          {canEdit ? "Edit/View" : "View"}
                         </Button>
                       </Link>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
 
-          {/* Pagination */}
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mt-4">
-            <span>
-              Page {page} of {totalPages}
-            </span>
-            <div className="space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                disabled={page === 1}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                disabled={page === totalPages}
-              >
-                Next
-              </Button>
-            </div>
+        {/* Pagination */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mt-4">
+          <span>
+            Page {page} of {totalPages}
+          </span>
+          <div className="space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              disabled={page === totalPages}
+            >
+              Next
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-    </Suspense>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
